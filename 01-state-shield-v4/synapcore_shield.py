@@ -228,42 +228,10 @@ class SynapcoreShieldV4:
         return sorted(listening_ports)
 
     def _trigger_alarm(self):
-        wav_earth = "/var/tmp/synapcore-schranz.wav"
-        if os.path.exists(wav_earth):
-            subprocess.Popen(["sh", "-c", f"play -q '{wav_earth}' 2>/dev/null || aplay -q '{wav_earth}' 2>/dev/null"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        try:
-            for _ in range(3):
-                sys.stdout.write("\a")
-                sys.stdout.flush()
-
-            if os.name == "nt":
-                return
-
-            wav_path = "/tmp/.synapcore_breach_screech.wav"
-            sample_rate = 22050
-            duration = 0.35
-            n_samples = int(sample_rate * duration)
-
-            with wave.open(wav_path, "w") as wf:
-                wf.setnchannels(1)
-                wf.setsampwidth(2)
-                wf.setframerate(sample_rate)
-                frames = bytearray()
-                for i in range(n_samples):
-                    t = i / sample_rate
-                    mod = math.sin(2.0 * math.pi * 155.0 * t) * 4.5
-                    carrier = math.sin(2.0 * math.pi * 880.0 * t + mod)
-                    clipped = max(-0.95, min(0.95, carrier * 1.6))
-                    sample_val = int(clipped * 32767)
-                    frames.extend(struct.pack("<h", sample_val))
-                wf.writeframes(frames)
-
-            for cmd in (["aplay", "-q", wav_path], ["paplay", wav_path]):
-                if shutil.which(cmd[0]):
-                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
-                    break
-        except Exception:
-            pass
+        wav = "/var/tmp/synapcore-schranz.wav"
+        cmd_audio = f"sudo -u synapcore XDG_RUNTIME_DIR=/run/user/$(id -u synapcore 2>/dev/null || echo 1000) play -q {wav} 2>/dev/null || aplay -q {wav} 2>/dev/null || true"
+        cmd_ble = "sudo -u synapcore timeout 4 adb shell am broadcast -a com.synapcore.ALERTA_INVASAO -p com.synapcore.companion --es titulo SHIELD_V4 --es mensagem VIOLACAO_IMA_EVM >/dev/null 2>&1 || true"
+        subprocess.Popen(["sh", "-c", f"({cmd_audio}) & ({cmd_ble}) &"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def initialize_registry(self, monitored_files: list[str], active_mode_code: str = "170") -> bool:
         pin = self._get_operator_pin("Digite o PIN Numerico Secreto para SELAR a Matriz (--init): ")
