@@ -5,7 +5,7 @@ Sintese sonora ancorada na fundamental Re (D1 = 36.71 Hz) e Crossover LR4 (90.0 
 """
 import math, struct, wave
 
-def generate_earth_telemetry(output_path="synapcore_alert_36hz.wav", duration=1.0, sample_rate=48000):
+def generate_earth_telemetry(output_path="/var/tmp/synapcore-schranz.wav", duration=1.0, sample_rate=48000):
     n_samples = int(sample_rate * duration)
     with wave.open(output_path, "w") as wf:
         wf.setnchannels(1)

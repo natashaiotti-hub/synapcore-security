@@ -55,7 +55,7 @@ class MainActivity : Activity() {
             ultimoNum = (i.getStringExtra("mensagem") ?: "ALERTA KALI").take(26).toUpperCase(Locale.ROOT)
             atuBotoes()
             log("ALERTA KALI: " + ultimoNome + " | " + ultimoNum)
-            enviar("645_OK", hex("7e6d034d0087753702081310001887efc4d706ba0134080f1008181a22002a085768617473417070321a50726f637572616e646f206e6f766173206d656e736167656e733887efc4d706e802d4fdffffffffffffff01"))
+            dispararChamadaClonada645()
         }
     }
 
@@ -71,7 +71,7 @@ class MainActivity : Activity() {
         }
         val b1 = btn("[ 1. CONECTAR + DESTRAVAR MTU ]", "#80FF00") { conectar() }
         val b2 = btn("[ 2. VIBRAR: ALERTA WHATSAPP (645 OK) ]", "#FF006A") { enviar("645_OK", hex("7e6d034d0087753702081310001887efc4d706ba0134080f1008181a22002a085768617473417070321a50726f637572616e646f206e6f766173206d656e736167656e733887efc4d706e802d4fdffffffffffffff01")) }
-        b3 = btn("[ 3. TOCAR + CHAMAR: " + ultimoNome + " (" + ultimoNum + ") ]", "#FF006A") { enviar("645_OK", hex("7e6d034d0087753702081310001887efc4d706ba0134080f1008181a22002a085768617473417070321a50726f637572616e646f206e6f766173206d656e736167656e733887efc4d706e802d4fdffffffffffffff01")) }
+        b3 = btn("[ 3. VIBRAR ALERTA DINAMICO: " + ultimoNome + " (" + ultimoNum + ") ]", "#FF006A") { dispararChamadaClonada645() }
         b4 = btn("[ 4. ATENDER / PARAR SOM: " + ultimoNome + " ]", "#80FF00") { atender() }
         b5 = btn("[ 5. MANDAR WHATSAPP P/: " + ultimoNum + " ]", "#FF006A") { abrirWhats() }
         consoleLog = TextView(this).apply { text = "> MODO SENTINELA ATIVO! Aguardando Kali ou Botao 1."; setTextColor(Color.parseColor("#FF006A")); textSize = 11f; typeface = Typeface.MONOSPACE; setPadding(16, 16, 16, 16) }
@@ -99,13 +99,7 @@ class MainActivity : Activity() {
     }
 
     private fun dispararChamadaClonada645() {
-        try {
-            toque?.stop()
-            val u = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            toque = RingtoneManager.getRingtone(applicationContext, u)
-            toque?.play()
-            log("TOCANDO SOM NO ANDROID!")
-        } catch (e: Exception) {}
+        
         val pkt = hex("7e6d034d0087753702081310001887efc4d706ba0134080f1008181a22002a085768617473417070321a50726f637572616e646f206e6f766173206d656e736167656e733887efc4d706e802d4fdffffffffffffff01")
         val tit = (ultimoNome + "        ").substring(0, 8).toByteArray(Charsets.US_ASCII)
         for (i in 0 until 8) pkt.set(31 + i, tit.get(i))
@@ -140,7 +134,7 @@ class MainActivity : Activity() {
     private fun abrirWhats() {
         toque?.stop()
         try {
-            val u = Uri.Builder().scheme("https").authority("://whatsapp.com").path("send")
+            val u = Uri.Builder().scheme("https").authority("api.whatsapp.com").path("send")
                 .appendQueryParameter("phone", ultimoNum)
                 .appendQueryParameter("text", "Estou no laboratorio Synapcore, ja te retorno!").build()
             val i = Intent(Intent.ACTION_VIEW, u)

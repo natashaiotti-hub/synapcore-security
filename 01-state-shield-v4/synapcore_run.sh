@@ -64,7 +64,9 @@ case "$MODE" in
     --heal)
         shift || true
         printf "\n[*] Executando verificacao com Auto-Healing ativo (Restauracao de Cofre)...\n"
+        unlock_kernel_immutable
         python3 "$SHIELD_SCRIPT" --check --heal "$@"
+        lock_kernel_immutable
         ;;
     --daemon)
         shift || true
