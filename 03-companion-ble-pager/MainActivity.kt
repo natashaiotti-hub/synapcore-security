@@ -1,5 +1,4 @@
 package com.synapcore.companion
-
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.*
@@ -7,12 +6,9 @@ import android.bluetooth.le.*
 import android.content.*
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
-import android.media.Ringtone
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.*
 import android.provider.ContactsContract
-import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
 import android.util.Log
 import android.view.Gravity
@@ -25,11 +21,16 @@ class MainActivity : Activity() {
     private val canais = ArrayList<BluetoothGattCharacteristic>()
     private val MAC = "00:00:00:00:00:00"
     private lateinit var consoleLog: TextView
-    private lateinit var b3: Button; private lateinit var b4: Button; private lateinit var b5: Button
-    private var ultimoNum = "5511900000000"; private var ultimoNome = "CHAMADA"
-    private var toque: Ringtone? = null; private var escaneando = false
+    private lateinit var b2: Button
+    private lateinit var b3: Button
+    private var ultimoNum = "5511900000000"
+    private var ultimoNome = "SYNAPCORE"
+    private var ultimoTexto = "PRONTO"
+    private var escaneando = false
     private var pacotePendente: ByteArray? = null
     private val h = Handler(Looper.getMainLooper())
+
+    private val PKT_VIBRAR_645 = "7e6d034d0087753702081310001887efc4d706ba0134080f1008181a22002a085768617473417070321a50726f637572616e646f206e6f766173206d656e736167656e733887efc4d706e802d4fdffffffffffffff01"
 
     private val rec = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
@@ -39,11 +40,12 @@ class MainActivity : Activity() {
                 if (TelephonyManager.EXTRA_STATE_RINGING == st) {
                     if (!n.isNullOrEmpty()) {
                         ultimoNum = n.replace("[^0-9]".toRegex(), "")
-                        ultimoNome = nomeContato(n) ?: n
+                        ultimoNome = nomeContato(n) ?: "CHAMADA"
                     }
+                    ultimoTexto = ultimoNum
                     atuBotoes()
-                    log("CHAMADA DE: " + ultimoNome + " (" + ultimoNum + ")")
-                    enviar("645_OK", hex("7e6d034d0087753702081310001887efc4d706ba0134080f1008181a22002a085768617473417070321a50726f637572616e646f206e6f766173206d656e736167656e733887efc4d706e802d4fdffffffffffffff01"))
+                    log("RECEBIDO DE: " + ultimoNome + " (" + ultimoNum + ")")
+                    enviar("645_OK", hex(PKT_VIBRAR_645))
                 }
             } catch (e: Exception) {}
         }
@@ -51,11 +53,11 @@ class MainActivity : Activity() {
 
     private val alertaKaliRec = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
-            ultimoNome = (i.getStringExtra("titulo") ?: "INVASAO!").take(8).toUpperCase(Locale.ROOT)
-            ultimoNum = (i.getStringExtra("mensagem") ?: "ALERTA KALI").take(26).toUpperCase(Locale.ROOT)
+            ultimoNome = (i.getStringExtra("titulo") ?: "INVASAO!").take(12).toUpperCase(Locale.ROOT)
+            ultimoTexto = (i.getStringExtra("mensagem") ?: "ALERTA KALI").take(26).toUpperCase(Locale.ROOT)
             atuBotoes()
-            log("ALERTA KALI: " + ultimoNome + " | " + ultimoNum)
-            dispararChamadaClonada645()
+            log("ALARME KALI: " + ultimoNome + " | " + ultimoTexto)
+            enviar("645_OK", hex(PKT_VIBRAR_645))
         }
     }
 
@@ -63,20 +65,23 @@ class MainActivity : Activity() {
         super.onCreate(s)
         val rb = GradientDrawable().apply { setColor(Color.parseColor("#000000")); setStroke(6, Color.parseColor("#80FF00")) }
         val lay = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; background = rb; setPadding(26, 26, 26, 26) }
-        val tit = TextView(this).apply { text = "SYNAPCORE // SENTINEL & WATCH [OK]"; setTextColor(Color.parseColor("#80FF00")); textSize = 14f; typeface = Typeface.MONOSPACE; gravity = Gravity.CENTER; setPadding(0, 0, 0, 16) }
+        val tit = TextView(this).apply { text = "SYNAPCORE // SENTINEL & WATCH [OK]"; setTextColor(Color.parseColor("#80FF00")); textSize = 14f; typeface = Typeface.MONOSPACE; gravity = Gravity.CENTER; setPadding(0, 0, 0, 18) }
+
         fun btn(t: String, cor: String, ac: () -> Unit) = Button(this).apply {
             text = t; setTextColor(Color.parseColor("#80FF00")); textSize = 11f; typeface = Typeface.MONOSPACE
             background = GradientDrawable().apply { setColor(Color.parseColor("#030604")); setStroke(4, Color.parseColor(cor)); cornerRadius = 8f }
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 12) }; setOnClickListener { ac() }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, 14) }; setOnClickListener { ac() }
         }
+
         val b1 = btn("[ 1. CONECTAR + DESTRAVAR MTU ]", "#80FF00") { conectar() }
-        val b2 = btn("[ 2. VIBRAR: ALERTA WHATSAPP (645 OK) ]", "#FF006A") { enviar("645_OK", hex("7e6d034d0087753702081310001887efc4d706ba0134080f1008181a22002a085768617473417070321a50726f637572616e646f206e6f766173206d656e736167656e733887efc4d706e802d4fdffffffffffffff01")) }
-        b3 = btn("[ 3. VIBRAR ALERTA DINAMICO: " + ultimoNome + " (" + ultimoNum + ") ]", "#FF006A") { dispararChamadaClonada645() }
-        b4 = btn("[ 4. ATENDER / PARAR SOM: " + ultimoNome + " ]", "#80FF00") { atender() }
-        b5 = btn("[ 5. MANDAR WHATSAPP P/: " + ultimoNum + " ]", "#FF006A") { abrirWhats() }
-        consoleLog = TextView(this).apply { text = "> MODO SENTINELA ATIVO! Aguardando Kali ou Botao 1."; setTextColor(Color.parseColor("#FF006A")); textSize = 11f; typeface = Typeface.MONOSPACE; setPadding(16, 16, 16, 16) }
+        b2 = btn("[ 2. VIBRAR ALERTA (645 OK): " + ultimoNome + " ]", "#FF006A") { enviar("645_OK", hex(PKT_VIBRAR_645)) }
+        b3 = btn("[ 3. MANDAR WHATSAPP P/: " + ultimoNum + " ]", "#80FF00") { abrirWhats() }
+
+        consoleLog = TextView(this).apply { text = "> MODO SENTINELA ATIVO! Aguardando Alarme Kali ou WhatsApp."; setTextColor(Color.parseColor("#FF006A")); textSize = 11f; typeface = Typeface.MONOSPACE; setPadding(16, 16, 16, 16) }
         val sc = ScrollView(this).apply { background = GradientDrawable().apply { setColor(Color.parseColor("#050002")); setStroke(3, Color.parseColor("#80FF00")) }; layoutParams = LinearLayout.LayoutParams(-1, -1); addView(consoleLog) }
-        lay.addView(tit); lay.addView(b1); lay.addView(b2); lay.addView(b3); lay.addView(b4); lay.addView(b5); lay.addView(sc); setContentView(lay)
+
+        lay.addView(tit); lay.addView(b1); lay.addView(b2); lay.addView(b3); lay.addView(sc); setContentView(lay)
+
         try {
             val fl = IntentFilter(TelephonyManager.ACTION_PHONE_STATE_CHANGED)
             val flKali = IntentFilter("com.synapcore.ALERTA_INVASAO")
@@ -92,27 +97,9 @@ class MainActivity : Activity() {
 
     private fun atuBotoes() {
         runOnUiThread {
-            b3.text = "[ 3. TOCAR + CHAMAR: " + ultimoNome + " (" + ultimoNum + ") ]"
-            b4.text = "[ 4. ATENDER / PARAR SOM: " + ultimoNome + " ]"
-            b5.text = "[ 5. MANDAR WHATSAPP P/: " + ultimoNum + " ]"
+            b2.text = "[ 2. VIBRAR ALERTA (645 OK): " + ultimoNome + " | " + ultimoTexto + " ]"
+            b3.text = "[ 3. MANDAR WHATSAPP P/: " + ultimoNum + " ]"
         }
-    }
-
-    private fun dispararChamadaClonada645() {
-        
-        val pkt = hex("7e6d034d0087753702081310001887efc4d706ba0134080f1008181a22002a085768617473417070321a50726f637572616e646f206e6f766173206d656e736167656e733887efc4d706e802d4fdffffffffffffff01")
-        val tit = (ultimoNome + "        ").substring(0, 8).toByteArray(Charsets.US_ASCII)
-        for (i in 0 until 8) pkt.set(31 + i, tit.get(i))
-        val msg = ("LIGACAO: " + ultimoNum + "              ").substring(0, 26).toByteArray(Charsets.US_ASCII)
-        for (i in 0 until 26) pkt.set(41 + i, msg.get(i))
-        var crc = 0
-        for (i in 7 until pkt.size) {
-            crc = crc xor (pkt.get(i).toInt() and 0xFF)
-            for (b in 0 until 8) crc = if ((crc and 1) != 0) (crc shr 1) xor 0xA001 else (crc shr 1)
-        }
-        pkt.set(5, (crc and 0xFF).toByte())
-        pkt.set(6, ((crc shr 8) and 0xFF).toByte())
-        enviar("CHAMADA_645", pkt)
     }
 
     private fun nomeContato(n: String): String? {
@@ -125,14 +112,7 @@ class MainActivity : Activity() {
         return null
     }
 
-    private fun atender() {
-        toque?.stop()
-        try { (getSystemService(TELECOM_SERVICE) as TelecomManager).acceptRingingCall() } catch (e: Exception) {}
-        log("TOQUE PARADO!")
-    }
-
     private fun abrirWhats() {
-        toque?.stop()
         try {
             val u = Uri.Builder().scheme("https").authority("api.whatsapp.com").path("send")
                 .appendQueryParameter("phone", ultimoNum)
