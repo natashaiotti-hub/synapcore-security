@@ -59,7 +59,7 @@ class SynapcoreShieldV4:
         if env_pin:
             return env_pin.strip()
         try:
-            return (os.environ.get("SYNAPCORE_PIN") or getpass.getpass(prompt_text)).strip()
+            return getpass.getpass(prompt_text).strip()
         except (EOFError, KeyboardInterrupt):
             print("\n[ABORTADO] Entrada de PIN cancelada pelo operador.")
             sys.exit(1)
@@ -228,31 +228,10 @@ class SynapcoreShieldV4:
         return sorted(listening_ports)
 
     def _trigger_alarm(self):
-        import getpass, sys
         wav = "/var/tmp/synapcore-schranz.wav"
-        print("
-" + "="*60)
-        print(" [!] ALERTA CRITICO: VIOLACAO DE INTEGRIDADE DETECTADA!")
-        print(" [!] O alarme continuara tocando em loop ate que o PIN correto seja fornecido.")
-        print("="*60 + "
-")
-        while True:
-            # Disparo duplo assincrono (Audio PipeWire + Smartwatch BLE)
-            cmd_audio = f"sudo -u synapcore XDG_RUNTIME_DIR=/run/user/$(id -u synapcore 2>/dev/null || echo 1000) play -q {wav} 2>/dev/null || aplay -q {wav} 2>/dev/null || true"
-            cmd_ble = "sudo -u synapcore timeout 4 adb shell am broadcast -a com.synapcore.ALERTA_INVASAO -p com.synapcore.companion --es titulo ALARME_TRAVADO --es mensagem PIN_OBRIGATORIO >/dev/null 2>&1 || true"
-            os.system(f"({cmd_audio}) & ({cmd_ble}) &")
-            
-            try:
-                # Exige a senha para desarmar
-                pin_input = getpass.getpass("Digite o PIN para DESARMAR o alarme: ")
-                if hmac.compare_digest(hashlib.sha256(pin_input.encode()).hexdigest(), self.config.get("pin_hash", "")):
-                    print("[OK] PIN correto. Alarme desarmado e sistema estabilizado.")
-                    break
-                else:
-                    print("[ERRO] PIN incorreto! O alarme persiste.")
-            except (KeyboardInterrupt, EOFError):
-                print("
-[AVISO] Interrupcao ignorada. O sistema exige o PIN de desarmamento.")
+        cmd_audio = f"sudo -u synapcore XDG_RUNTIME_DIR=/run/user/$(id -u synapcore 2>/dev/null || echo 1000) play -q {wav} 2>/dev/null || aplay -q {wav} 2>/dev/null || true"
+        cmd_ble = "sudo -u synapcore timeout 4 adb shell am broadcast -a com.synapcore.ALERTA_INVASAO -p com.synapcore.companion --es titulo SHIELD_V4 --es mensagem VIOLACAO_IMA_EVM >/dev/null 2>&1 || true"
+        subprocess.Popen(["sh", "-c", f"({cmd_audio}) & ({cmd_ble}) &"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def initialize_registry(self, monitored_files: list[str], active_mode_code: str = "170") -> bool:
         pin = self._get_operator_pin("Digite o PIN Numerico Secreto para SELAR a Matriz (--init): ")
