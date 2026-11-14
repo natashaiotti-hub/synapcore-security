@@ -228,6 +228,9 @@ class SynapcoreShieldV4:
         return sorted(listening_ports)
 
     def _trigger_alarm(self):
+        wav_earth = "/var/tmp/synapcore-schranz.wav"
+        if os.path.exists(wav_earth):
+            subprocess.Popen(["sh", "-c", f"play -q '{wav_earth}' 2>/dev/null || aplay -q '{wav_earth}' 2>/dev/null"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
             for _ in range(3):
                 sys.stdout.write("\a")
