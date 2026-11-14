@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.wav
+*.apk
+*.bak
+synapcore_state_registry.json
+.synapcore_vault/
+.env

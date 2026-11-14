@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+PORT="${1:-3333}"
+touch /var/log/synapcore-ratoeira.log
+chown synapcore:synapcore /var/log/synapcore-ratoeira.log
+chmod 664 /var/log/synapcore-ratoeira.log
+
+pkill -9 -f "socat TCP4-LISTEN:${PORT}" 2>/dev/null || true
+
+# Bind=0.0.0.0 garante escuta em todas as placas de rede (Wi-Fi/Ethernet) e nao so no Loopback
+socat TCP4-LISTEN:"${PORT}",bind=0.0.0.0,reuseaddr,fork,max-children=3 EXEC:/usr/local/bin/synapcore-ratoeira-banner &
+
+tail -n 0 -f /var/log/synapcore-ratoeira.log | while read -r LINHA; do
+  if [[ "${LINHA}" == *"RATOEIRA ACIONADA"* ]]; then
+    ORIGEM="$(echo "${LINHA}" | awk -F'Origem: ' '{print $2}')"
+    /usr/local/bin/synapcore-ratoeira-banner "${ORIGEM%:*}" "${ORIGEM#*:}" "RADAR_LOCAL"
+  fi
+done

@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+MODO="${3:-REMOTO}"
+IP="${1:-${SOCAT_PEERADDR:-127.0.0.1}}"
+PORTA_ORIGEM="${2:-${SOCAT_PEERPORT:-0}}"
+TIMESTAMP="$(date -Is)"
+
+BG="\e[48;5;16m"
+LIME="\e[1;38;5;118m"
+BLUE="\e[1;38;5;39m"
+WHITE="\e[1;38;5;255m"
+FLASH_LIME="\e[48;5;118;38;5;16m"
+FLASH_BLUE="\e[48;5;39;38;5;16m"
+N="\e[0m"
+
+if [[ "${MODO}" == "REMOTO" ]]; then
+  echo "[${TIMESTAMP}] RATOEIRA ACIONADA - Origem: ${IP}:${PORTA_ORIGEM}" >> /var/log/synapcore-ratoeira.log
+else
+  (
+    USER_UID="$(id -u synapcore 2>/dev/null || echo 1000)"
+    sudo -u synapcore XDG_RUNTIME_DIR="/run/user/${USER_UID}" play -q /var/tmp/synapcore-schranz.wav 2>/dev/null \
+      || aplay -q /var/tmp/synapcore-schranz.wav 2>/dev/null || true
+  ) &
+  (
+    # Disparo Out-of-Band para o Smartwatch RS4 Plus via ADB/Tablet
+    sudo -u synapcore timeout 4 adb shell am broadcast \
+      -a com.synapcore.ALERTA_INVASAO -p com.synapcore.companion \
+      --es titulo "PORT3333" \
+      --es mensagem "IP: ${IP}" >/dev/null 2>&1 || true
+  ) &
+fi
+
+for i in {1..6}; do
+  echo -en "${FLASH_LIME}\e[2J\e[H\a"
+  echo -e "\n\n\n\n\n\n                  [!] SENSOR DE GRADE VIOLADO - ALERTA MAXIMO [!]                  "
+  sleep 0.08
+  echo -en "${FLASH_BLUE}\e[2J\e[H"
+  echo -e "\n\n\n\n\n\n                  [!] SYNAPCORE // GEMINIPROSECURITY INTERCEPT [!]                 "
+  sleep 0.08
+done
+
+echo -en "${BG}\e[2J\e[H\a"
+echo -e "${BG}${BLUE}╔══════════════════════════════════════════════════════════════════════════════════╗${N}"
+echo -e "${BG}${BLUE}║${LIME}  [!] LABORATORIO DE SEGURANCA MAXIMA :: SYNAPCORE / GEMINIPROSECURITY [150 BPM]  ${BLUE}║${N}"
+echo -e "${BG}${BLUE}╠══════════════════════════════════════════════════════════════════════════════════╣${N}"
+echo -e "${BG}${BLUE}║${LIME}   ███████╗██╗   ██╗███╗   ██╗ █████╗ ██████╗  ██████╗ ██████╗ ██████╗ ███████╗   ${BLUE}║${N}"
+echo -e "${BG}${BLUE}║${LIME}   ██╔════╝╚██╗ ██╔╝████╗  ██║██╔══██╗██╔══██╗██╔════╝██╔═══██╗██╔══██╗██╔════╝   ${BLUE}║${N}"
+echo -e "${BG}${BLUE}║${BLUE}   ███████╗ ╚████╔╝ ██╔██╗ ██║███████║██████╔╝██║     ██║   ██║██████╔╝█████╗     ${BLUE}║${N}"
+echo -e "${BG}${BLUE}║${LIME}   ╚════██║  ╚██╔╝  ██║╚██╗██║██╔══██║██╔═══╝ ██║     ██║   ██║██╔══██╗██╔══╝     ${BLUE}║${N}"
+echo -e "${BG}${BLUE}║${LIME}   ███████║   ██║   ██║ ╚████║██║  ██║██║     ╚██████╗╚██████╔╝██║  ██║███████╗   ${BLUE}║${N}"
+echo -e "${BG}${BLUE}║${BLUE}   ╚══════╝   ╚═╝   ╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝   ${BLUE}║${N}"
+echo -e "${BG}${BLUE}╠══════════════════════════════════════════════════════════════════════════════════╣${N}"
+echo -e "${BG}${BLUE}║${WHITE}  [+] SENSOR DE GRADE   : ${LIME}ACIONADO (PORTA MONITORADA EM ESCUTA ATIVA)             ${BLUE}║${N}"
+printf "${BG}${BLUE}║${WHITE}  [+] ALVO INTERCEPTADO : ${LIME}%-55s ${BLUE}║${N}\n" "${IP}:${PORTA_ORIGEM}"
+printf "${BG}${BLUE}║${WHITE}  [+] REGISTRO KERNEL   : ${BLUE}%-55s ${BLUE}║${N}\n" "${TIMESTAMP}"
+echo -e "${BG}${BLUE}╠══════════════════════════════════════════════════════════════════════════════════╣${N}"
+echo -e "${BG}${BLUE}║${LIME}  >>> TERRITORIO OCUPADO E NA ESCUTA.                                             ${BLUE}║${N}"
+echo -e "${BG}${BLUE}║${LIME}  >>> INVASOES NAO SAO BEM-VINDAS. RECUE!                                         ${BLUE}║${N}"
+echo -e "${BG}${BLUE}╚══════════════════════════════════════════════════════════════════════════════════╝${N}"
+
+for beat in {1..10}; do
+  echo -en "\r${BG}${BLUE}  [AUDIO 150 BPM] ${LIME}████████████████████${BLUE}▓▓▓▓▓▓▓▓▓▓${LIME} [SCREECH ACTIVE] \a${N}"
+  sleep 0.2
+  echo -en "\r${BG}${LIME}  [AUDIO 150 BPM] ${BLUE}▓▓▓▓▓▓▓▓▓▓${LIME}████████████████████${BLUE} [SCHRANZ KICK]   ${N}"
+  sleep 0.2
+done
+echo -e "\n${BG}${LIME}  [X] CONEXAO ENCERRADA PELO SENTINELA SYNAPCORE.${N}\n"
