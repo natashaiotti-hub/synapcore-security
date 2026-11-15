@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SYNAPCORE // ARGON MASTER HUD v4.0</title>
+<style>
+  :root { --bg: #05070a; --panel: #0b0f16; --green: #00ff88; --cyan: #00e5ff; --red: #ff2a55; --grid: #15202b; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', monospace; }
+  body { background: var(--bg); color: var(--green); padding: 14px; overflow-x: hidden; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--green); padding-bottom: 8px; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .title { font-size: 17px; font-weight: bold; letter-spacing: 2px; color: var(--cyan); }
+  .badge { background: #002b18; border: 1px solid var(--green); padding: 4px 10px; font-size: 12px; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; background: var(--panel); padding: 10px; border: 1px solid var(--grid); align-items: center; }
+  button, label.btn, select { background: #09131c; color: var(--cyan); border: 1px solid var(--cyan); padding: 8px 12px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.15s; }
+  button:hover, label.btn:hover, select:hover, button.active { background: var(--cyan); color: #000; }
+  .ctrl-group { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #78909c; border: 1px solid var(--grid); padding: 5px 10px; background: #070b10; }
+  input[type="range"] { accent-color: var(--green); cursor: pointer; width: 90px; }
+  input[type="file"] { display: none; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+  @media (max-width: 800px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+  .card { background: var(--panel); border: 1px solid var(--grid); padding: 10px; }
+  .card-label { font-size: 11px; color: #78909c; }
+  .card-val { font-size: 18px; font-weight: bold; margin-top: 4px; color: var(--green); }
+  .canvas-wrap { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+  .panel-box { background: var(--panel); border: 1px solid var(--grid); padding: 10px; position: relative; }
+  .panel-title { font-size: 12px; color: var(--cyan); margin-bottom: 6px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+  canvas { width: 100%; height: 210px; background: #030507; display: block; border: 1px solid #101820; }
+  .arch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (max-width: 900px) { .arch-grid { grid-template-columns: repeat(2, 1fr); } }
+  .arch-card { background: var(--panel); border: 1px solid var(--grid); padding: 10px; font-size: 11px; }
+  .arch-card strong { color: var(--cyan); display: block; margin-bottom: 4px; font-size: 12px; }
+  .arch-card span { color: #90a4ae; line-height: 1.4; display: block; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">SYNAPCORE // ARGON MASTER HUD [FFT 4096 | 48kHz NYQUIST LAB]</div>
+    <div class="badge" id="statusBadge">ZERO-TELEMETRY // STANDALONE DSP</div>
+  </div>
+
+  <div class="controls">
+    <button id="btnSynth">[1] RUMBLE KICK</button>
+    <select id="dspSelector">
+      <option value="">-- MOTOR DSP SINTÉTICO (AO VIVO) --</option>
+      <option value="rumble">01 // RUMBLE KICK (SUB 40Hz + TANH)</option>
+      <option value="schranz">02 // SCHRANZ INDUSTRIAL LOOP</option>
+      <option value="acid303">03 // ACID 303 SCREECH + SUB</option>
+      <option value="earth">04 // EARTH CALIBRATION (40Hz + 105Hz)</option>
+      <option value="alarm">05 // SHIELD ALARM (TCP TRAP 3333)</option>
+    </select>
+    <div class="ctrl-group">
+      <span>BPM:</span>
+      <input type="range" id="bpmRange" min="140" max="170" value="155">
+      <span id="bpmVal" style="color: var(--green);">155</span>
+    </div>
+    <div class="ctrl-group">
+      <span>DRIVE:</span>
+      <input type="range" id="driveRange" min="10" max="45" value="18">
+      <span id="driveVal" style="color: var(--green);">1.8x</span>
+    </div>
+    <label class="btn">ARQUIVO LOCAL<input type="file" id="fileInput" accept=".wav,.mp3,.ogg,audio/*"></label>
+    <button id="btnStop" style="border-color: var(--red); color: var(--red);">[PARAR DSP]</button>
+  </div>
+
+  <div class="metrics">
+    <div class="card">
+      <div class="card-label">PICO FUNDAMENTAL (SUB)</div>
+      <div class="card-val" id="valPeakFreq">40.00 Hz</div>
+    </div>
+    <div class="card">
+      <div class="card-label">FREQ MÁX ATIVA (-60dB)</div>
+      <div class="card-val" id="valMaxFreq">0.00 Hz</div>
+    </div>
+    <div class="card">
+      <div class="card-label">MARGEM ANTI-ALIASING (Fs/2)</div>
+      <div class="card-val" id="valMargin">24000.00 Hz</div>
+    </div>
+    <div class="card">
+      <div class="card-label">CREST FACTOR / PICO</div>
+      <div class="card-val" id="valDb">-Inf dBFS</div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="panel-box">
+      <div class="panel-title">
+        <span>ANALISADOR ESPECTRAL FFT (4096 BINS | 40Hz SUB | 105Hz MONO | 21.8kHz NYQUIST)</span>
+        <span id="srLabel">Fs: 48000 Hz | Nyquist: 24000 Hz</span>
+      </div>
+      <canvas id="fftCanvas" width="1200" height="210"></canvas>
+    </div>
+    <div class="panel-box">
+      <div class="panel-title">
+        <span>OSCILOSCÓPIO DE FASE &amp; SATURAÇÃO TANH (DOMÍNIO DO TEMPO)</span>
+        <span>FASE SUB (&lt;120Hz): ESTRITAMENTE MONO</span>
+      </div>
+      <canvas id="oscCanvas" width="1200" height="170"></canvas>
+    </div>
+  </div>
+
+  <div class="arch-grid">
+    <div class="arch-card">
+      <strong>01 // STATE-SHIELD-V4</strong>
+      <span>Integridade criptográfica SHA-256/HMAC, travas de kernel e auto-healing systemd.</span>
+    </div>
+    <div class="arch-card">
+      <strong>02 // ACTIVE-DECEPTION</strong>
+      <span>Ratoeira TCP (Porta 3333) via socat com captura de IP e alerta sonoro instantâneo.</span>
+    </div>
+    <div class="arch-card">
+      <strong>03 // COMPANION-BLE-PAGER</strong>
+      <span>Payload tátil out-of-band via Bluetooth Low Energy para alerta direto no pulso.</span>
+    </div>
+    <div class="arch-card">
+      <strong>04 // EARTH-DSP-TELEMETRY</strong>
+      <span>Síntese matemática 48kHz / 40Hz Mono Sub + saturação tanh sem telemetria externa.</span>
+    </div>
+  </div>
+
+<script>
+let audioCtx, analyser, loopTimer;
+let activeNodes = [];
+let currentMode = null;
+
+const fftCanvas = document.getElementById('fftCanvas');
+const fftCtx = fftCanvas.getContext('2d');
+const oscCanvas = document.getElementById('oscCanvas');
+const oscCtx = oscCanvas.getContext('2d');
+const bpmRange = document.getElementById('bpmRange');
+const driveRange = document.getElementById('driveRange');
+
+bpmRange.oninput = () => {
+  document.getElementById('bpmVal').textContent = bpmRange.value;
+  if (currentMode && currentMode !== 'local') startMode(currentMode);
+};
+driveRange.oninput = () => {
+  document.getElementById('driveVal').textContent = (driveRange.value / 10).toFixed(1) + 'x';
+};
+
+function initAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+    } catch (e) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
+    analyser.smoothingTimeConstant = 0.75;
+    analyser.connect(audioCtx.destination);
+    document.getElementById('srLabel').textContent = `Fs: ${audioCtx.sampleRate} Hz | Nyquist: ${audioCtx.sampleRate / 2} Hz`;
+    requestAnimationFrame(drawLoop);
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function stopAll() {
+  if (loopTimer) { clearInterval(loopTimer); loopTimer = null; }
+  activeNodes.forEach(n => { try { n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} });
+  activeNodes = [];
+  document.getElementById('statusBadge').textContent = 'ZERO-TELEMETRY // STANDBY';
+}
+
+function getDrive() {
+  return parseFloat(driveRange.value) / 10.0;
+}
+
+function triggerRumbleKick() {
+  const sr = audioCtx.sampleRate;
+  const bpm = parseInt(bpmRange.value, 10);
+  const dur = 60 / bpm;
+  const len = Math.floor(sr * dur);
+  const buf = audioCtx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  const drive = getDrive();
+  let lp = 0;
+  const rc = 1.0 / (2 * Math.PI * 105.0);
+  const alpha = (1 / sr) / (rc + (1 / sr));
+
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const f_inst = 40.0 + 140.0 * Math.exp(-t * 38.0);
+    const punch = Math.sin(2 * Math.PI * f_inst * t) * Math.exp(-t * 9.5);
+    const duck = 1.0 - Math.exp(-t * 14.0);
+    const rawRumble = Math.tanh(punch * 4.2) * Math.sin(2 * Math.PI * 40.0 * t);
+    lp = lp + alpha * (rawRumble - lp);
+    data[i] = Math.tanh((punch * 1.3 + lp * duck * 0.88) * drive);
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(analyser);
+  src.start();
+  activeNodes.push(src);
+}
+
+function triggerSchranzStep(step) {
+  triggerRumbleKick();
+  const sr = audioCtx.sampleRate;
+  const bpm = parseInt(bpmRange.value, 10);
+  const stepDur = (60 / bpm) / 2;
+  const len = Math.floor(sr * stepDur);
+  const buf = audioCtx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  const drive = getDrive();
+  let hp = 0, prev = 0;
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const noise = (Math.random() * 2 - 1) * Math.exp(-t * 28.0);
+    const metallic = Math.sin(2 * Math.PI * (step % 2 === 0 ? 920 : 1480) * t) * Math.exp(-t * 35.0);
+    const x = noise * 0.65 + metallic * 0.35;
+    hp = 0.85 * (hp + x - prev);
+    prev = x;
+    data[i] = Math.tanh(hp * drive * 1.5) * 0.45;
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(analyser);
+  src.start(audioCtx.currentTime + stepDur);
+  activeNodes.push(src);
+}
+
+function triggerAcid303(step) {
+  if (step % 2 === 0) triggerRumbleKick();
+  const notes = [41.2, 41.2, 55.0, 49.0, 61.7, 41.2, 82.4, 73.4];
+  const freq = notes[step % notes.length];
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const filter = audioCtx.createBiquadFilter();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freq * 2, now);
+  filter.type = 'lowpass';
+  filter.Q.setValueAtTime(14, now);
+  filter.frequency.setValueAtTime(180, now);
+  filter.frequency.exponentialRampToValueAtTime(2800 * (getDrive() / 1.8), now + 0.04);
+  filter.frequency.exponentialRampToValueAtTime(160, now + 0.18);
+  gain.gain.setValueAtTime(0.32, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(analyser);
+  osc.start(now);
+  osc.stop(now + 0.2);
+  activeNodes.push(osc);
+}
+
+function startEarthCalibration() {
+  const now = audioCtx.currentTime;
+  const sub = audioCtx.createOscillator();
+  const mid = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(40, now);
+  mid.type = 'triangle';
+  mid.frequency.setValueAtTime(105, now);
+  gain.gain.setValueAtTime(0.35, now);
+  sub.connect(gain);
+  mid.connect(gain);
+  gain.connect(analyser);
+  sub.start(now);
+  mid.start(now);
+  activeNodes.push(sub, mid);
+}
+
+function triggerAlarmPulse(step) {
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(step % 2 === 0 ? 880 : 440, now);
+  gain.gain.setValueAtTime(0.18, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+  osc.connect(gain);
+  gain.connect(analyser);
+  osc.start(now);
+  osc.stop(now + 0.17);
+  activeNodes.push(osc);
+}
+
+function startMode(mode) {
+  initAudio();
+  stopAll();
+  currentMode = mode;
+  const bpm = parseInt(bpmRange.value, 10);
+  const beatMs = (60 / bpm) * 1000;
+  let step = 0;
+
+  if (mode === 'rumble') {
+    document.getElementById('statusBadge').textContent = `DSP // RUMBLE KICK (${bpm} BPM)`;
+    triggerRumbleKick();
+    loopTimer = setInterval(triggerRumbleKick, beatMs);
+  } else if (mode === 'schranz') {
+    document.getElementById('statusBadge').textContent = `DSP // SCHRANZ LOOP (${bpm} BPM)`;
+    triggerSchranzStep(step++);
+    loopTimer = setInterval(() => triggerSchranzStep(step++), beatMs);
+  } else if (mode === 'acid303') {
+    document.getElementById('statusBadge').textContent = `DSP // ACID 303 (${bpm} BPM)`;
+    triggerAcid303(step++);
+    loopTimer = setInterval(() => triggerAcid303(step++), beatMs / 2);
+  } else if (mode === 'earth') {
+    document.getElementById('statusBadge').textContent = 'DSP // EARTH CALIBRATION (40Hz + 105Hz)';
+    startEarthCalibration();
+  } else if (mode === 'alarm') {
+    document.getElementById('statusBadge').textContent = 'ALERT // TCP TRAP PORT 3333';
+    triggerAlarmPulse(step++);
+    loopTimer = setInterval(() => triggerAlarmPulse(step++), 220);
+  }
+}
+
+document.getElementById('btnSynth').onclick = () => {
+  document.getElementById('dspSelector').value = 'rumble';
+  startMode('rumble');
+};
+
+document.getElementById('dspSelector').onchange = (e) => {
+  if (e.target.value) startMode(e.target.value);
+};
+
+document.getElementById('fileInput').onchange = async (e) => {
+  if (!e.target.files[0]) return;
+  initAudio();
+  stopAll();
+  currentMode = 'local';
+  const arr = await e.target.files[0].arrayBuffer();
+  const audioBuf = await audioCtx.decodeAudioData(arr);
+  const src = audioCtx.createBufferSource();
+  src.buffer = audioBuf;
+  src.loop = true;
+  src.connect(analyser);
+  src.start();
+  activeNodes.push(src);
+  document.getElementById('statusBadge').textContent = 'FILE // ' + e.target.files[0].name;
+};
+
+document.getElementById('btnStop').onclick = () => {
+  currentMode = null;
+  stopAll();
+};
+
+function drawLoop() {
+  requestAnimationFrame(drawLoop);
+  if (!analyser) return;
+
+  const freqBins = new Uint8Array(analyser.frequencyBinCount);
+  const timeBins = new Float32Array(analyser.fftSize);
+  analyser.getByteFrequencyData(freqBins);
+  analyser.getFloatTimeDomainData(timeBins);
+
+  const sr = audioCtx.sampleRate;
+  const nyquist = sr / 2;
+  const binHz = nyquist / freqBins.length;
+
+  let maxVal = 0, maxIdx = 0, highestActiveIdx = 0;
+  for (let i = 1; i < freqBins.length; i++) {
+    if (freqBins[i] > maxVal) { maxVal = freqBins[i]; maxIdx = i; }
+    if (freqBins[i] > 18) highestActiveIdx = i;
+  }
+  if (maxVal > 0) {
+    const peakHz = (maxIdx * binHz).toFixed(2);
+    const highHz = (highestActiveIdx * binHz).toFixed(2);
+    const marginHz = Math.max(0, nyquist - highestActiveIdx * binHz).toFixed(2);
+    document.getElementById('valPeakFreq').textContent = `${peakHz} Hz`;
+    document.getElementById('valMaxFreq').textContent = `${highHz} Hz`;
+    document.getElementById('valMargin').textContent = `${marginHz} Hz`;
+  }
+
+  let peakAmp = 0;
+  for (let i = 0; i < timeBins.length; i++) {
+    const a = Math.abs(timeBins[i]);
+    if (a > peakAmp) peakAmp = a;
+  }
+  const db = peakAmp > 0.0001 ? (20 * Math.log10(peakAmp)).toFixed(1) : '-Inf';
+  document.getElementById('valDb').textContent = `${db} dBFS`;
+
+  const w = fftCanvas.width, h = fftCanvas.height;
+  fftCtx.fillStyle = '#030507';
+  fftCtx.fillRect(0, 0, w, h);
+
+  const markFreq = (hz, color, label) => {
+    const x = Math.log10(hz / 20) / Math.log10(nyquist / 20) * w;
+    fftCtx.strokeStyle = color;
+    fftCtx.beginPath(); fftCtx.moveTo(x, 0); fftCtx.lineTo(x, h); fftCtx.stroke();
+    fftCtx.fillStyle = color; fftCtx.font = '11px Courier New';
+    fftCtx.fillText(label, x + 4, 14);
+  };
+  markFreq(40, '#00ff88', '40Hz SUB');
+  markFreq(105, '#00e5ff', '105Hz MONO');
+  markFreq(21867, '#ff2a55', '21.8kHz LIMITE');
+
+  fftCtx.beginPath();
+  fftCtx.strokeStyle = '#00ff88';
+  fftCtx.lineWidth = 1.5;
+  for (let i = 1; i < freqBins.length; i++) {
+    const hz = i * binHz;
+    if (hz < 20) continue;
+    const x = (Math.log10(hz / 20) / Math.log10(nyquist / 20)) * w;
+    const y = h - (freqBins[i] / 255) * (h - 20);
+    if (i === 1) fftCtx.moveTo(x, y); else fftCtx.lineTo(x, y);
+  }
+  fftCtx.stroke();
+
+  const ow = oscCanvas.width, oh = oscCanvas.height;
+  oscCtx.fillStyle = '#030507';
+  oscCtx.fillRect(0, 0, ow, oh);
+  oscCtx.strokeStyle = '#15202b';
+  oscCtx.beginPath(); oscCtx.moveTo(0, oh / 2); oscCtx.lineTo(ow, oh / 2); oscCtx.stroke();
+
+  oscCtx.beginPath();
+  oscCtx.strokeStyle = '#00e5ff';
+  oscCtx.lineWidth = 1.8;
+  const slice = ow / 1024;
+  for (let i = 0; i < 1024; i++) {
+    const x = i * slice;
+    const y = (oh / 2) - (timeBins[i] * (oh / 2 - 10));
+    if (i === 0) oscCtx.moveTo(x, y); else oscCtx.lineTo(x, y);
+  }
+  oscCtx.stroke();
+}
+</script>
+</body>
+</html>
