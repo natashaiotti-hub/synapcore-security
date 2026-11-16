@@ -1,0 +1,52 @@
+[Unit]
+Description=Synapcore TCP Deception Trap (Port 3333)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/synapcore/synaptrap.py
+Restart=on-failure
+RestartSec=3
+
+# ==========================================
+# BLINDAGEM ADAPTATIVA (EVOLUTION MODE)
+# ==========================================
+# 1. Isolamento Base
+DynamicUser=yes
+PrivateTmp=yes
+PrivateDevices=yes
+
+# 2. Filesystem (Blindado, mas com furo cirúrgico para desenvolvimento)
+ProtectSystem=strict
+ProtectHome=read-only
+StateDirectory=synaptrap
+# ^ Cria /var/lib/synaptrap e dá posse exclusiva ao usuário dinâmico.
+
+# 3. Proteção do Kernel
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+
+# 4. Superpoderes de Defesa Ativa (As garras do daemon)
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_BPF
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_BPF
+# ^ NET_ADMIN/RAW: Permite alterar regras de iptables/nftables. BPF: Permite carre>
+
+# 5. Comunicação Avançada
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_PACKET
+# ^ NETLINK e PACKET foram liberados para que o Python consiga injetar pacotes e c>
+
+# 6. Permissão de arquivos
+UMask=0027
+
+# 7. Logs
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
