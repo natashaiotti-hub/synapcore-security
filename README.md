@@ -14,3 +14,11 @@ O **Synapcore** e um ecossistema modular de defesa ativa de endpoints Linux dese
     chmod +x synapcore_shield.py synapcore_run.sh
     ./synapcore_run.sh --init --targets synapcore_shield.py synapcore_run.sh
     ./synapcore_run.sh --daemon --heal --interval 5
+
+## Module 02 Update — Synaptrap v2.0 (Dual-Port Adaptive Deception & SSH Tarpit)
+
+- **Port Collision Fix:** Separated active deception daemons into two non-conflicting endpoints — `synapcore-radar` (`socat` + 150 BPM Schranz alert) remains on **TCP/3333**, while `synaptrap.service` operates on **TCP/2222** (high-value alternate SSH target).
+- **Async Adaptive Profiling (`asyncio`):** Classifies incoming connections in real time without blocking concurrent listeners:
+  - `HUMAN_INTERACTIVE`: Serves a realistic decoy banner (`SSH-2.0-OpenSSH_9.2p1 Debian-2+deb12u3`) and captures client fingerprints in `journald`.
+  - `BOT_SCANNER`: Triggered by rapid bursts or automated payloads (`dt < 0.35s`), activating an **RFC 4253 SSH Tarpit** (`X-Synapcore-Sync`) that slows down scanner threads.
+- **Anti-DoS & Hardening:** Enforces a strict concurrency semaphore (`MAX_CONCURRENT = 40`, ~70s session cap) under systemd sandboxing (`DynamicUser=yes`, `ProtectSystem=strict`, `NoNewPrivileges=yes`, `systemd-analyze security` score **4.8 OK**).

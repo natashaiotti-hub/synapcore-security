@@ -1,5 +1,5 @@
 [Unit]
-Description=Synapcore TCP Deception Trap (Port 3333)
+Description=Synapcore TCP Deception Trap (Port 2222)
 After=network.target
 
 [Service]
